@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gerador de Assinatura (JPEG)</title>
+  <style>
+    :root{
+      --bg:#0b0d10; --card:#12161c; --muted:#9aa4b2; --text:#e9eef5;
+      --stroke:#242c36; --accent:#4f8cff; --danger:#ff5a6a;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #0b0d10 0%, #090b0e 100%);
+      color:var(--text);
+      padding:24px;
+    }
+    .wrap{
+      max-width: 980px;
+      margin: 0 auto;
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:16px;
+      align-items:start;
+    }
+    @media (max-width: 900px){ .wrap{ grid-template-columns: 1fr; } }
+    .card{
+      background: rgba(18,22,28,.9);
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      padding:16px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.35);
+    }
+    h1{ margin:0 0 10px 0; font-size:18px; font-weight:650; letter-spacing:.2px; }
+    p{ margin:0 0 14px 0; color:var(--muted); font-size:13px; line-height:1.4; }
+    label{ display:block; font-size:12px; color:var(--muted); margin:10px 0 6px; }
+    input{
+      width:100%;
+      padding:12px 12px;
+      background:#0e1217;
+      color:var(--text);
+      border:1px solid var(--stroke);
+      border-radius:12px;
+      outline:none;
+      font-size:14px;
+    }
+    input:focus{
+      border-color: rgba(79,140,255,.65);
+      box-shadow: 0 0 0 3px rgba(79,140,255,.18);
+    }
+    .row{ display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+    button{
+      border:1px solid var(--stroke);
+      background:#0e1217;
+      color:var(--text);
+      padding:12px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:600;
+      font-size:14px;
+      transition: transform .05s ease, border-color .15s ease, opacity .15s ease;
+    }
+    button:hover{ border-color: rgba(79,140,255,.65); }
+    button:active{ transform: translateY(1px); }
+    button.primary{
+      background: rgba(79,140,255,.15);
+      border-color: rgba(79,140,255,.45);
+    }
+    button.primary:hover{ border-color: rgba(79,140,255,.75); }
+    button[disabled]{ opacity:.55; cursor:not-allowed; }
+
+    .error{ color: var(--danger); font-size:12px; margin-top:10px; display:none; }
+
+    .previewHead{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+    .badge{
+      font-size:12px;
+      color: var(--muted);
+      padding:6px 10px;
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      background:#0e1217;
+    }
+    .canvasWrap{
+      background: #0e1217;
+      border:1px dashed rgba(154,164,178,.35);
+      border-radius:16px;
+      padding:14px;
+      overflow:auto;
+    }
+    canvas{
+      display:block;
+      background:#ffffff;
+      border-radius:10px;
+      max-width:100%;
+      height:auto;
+    }
+
+    .status{
+      font-size:12px;
+      color:var(--muted);
+      padding:10px 12px;
+      border:1px solid var(--stroke);
+      border-radius:12px;
+      background:#0e1217;
+      margin: 10px 0 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <h1>Gerador de assinatura (JPEG)</h1>
+      <p>
+        Layout carregado automaticamente a partir do arquivo do projeto.
+        Para funcionar, mantenha <strong>assets/layout.jpg</strong> ao lado do <strong>index.html</strong>.
+      </p>
+
+      <div class="status" id="bgStatus">Carregando layout…</div>
+
+      <label for="fullName">Nome completo</label>
+      <input id="fullName" type="text" placeholder="Ex.: Gabriel Rodrigues" />
+
+      <label for="role">Cargo (opcional)</label>
+      <input id="role" type="text" placeholder="Ex.: Designer" />
+
+      <label for="contact">Telefone / WhatsApp</label>
+      <input id="contact" type="text" placeholder="Ex.: (11) 97887-6929" />
+
+      <label for="email">E-mail (opcional)</label>
+      <input id="email" type="text" placeholder="Ex.: gabriel.mrl3@gmail.com" />
+
+      <div class="row">
+        <button class="primary" id="btnDownload" type="button" disabled>Baixar JPEG</button>
+        <button id="btnClear" type="button">Limpar</button>
+      </div>
+
+      <div class="error" id="errorMsg">Preencha ao menos Nome e Telefone antes de baixar.</div>
+    </section>
+
+    <section class="card">
+      <div class="previewHead">
+        <h1 style="margin:0;">Prévia</h1>
+        <span class="badge" id="sizeBadge">400×96</span>
+      </div>
+
+      <div class="canvasWrap">
+        <canvas id="sigCanvas" width="400" height="96"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      // Layout padrão (JPG)
+      const DEFAULT_LAYOUT_URL = "./assets/layout.jpg";
+
+      const canvas = document.getElementById("sigCanvas");
+      const ctx = canvas.getContext("2d");
+
+      const bgStatus = document.getElementById("bgStatus");
+
+      const fullNameEl = document.getElementById("fullName");
+      const roleEl = document.getElementById("role");
+      const contactEl = document.getElementById("contact");
+      const emailEl = document.getElementById("email");
+
+      const btnDownload = document.getElementById("btnDownload");
+      const btnClear = document.getElementById("btnClear");
+      const errorMsg = document.getElementById("errorMsg");
+      const sizeBadge = document.getElementById("sizeBadge");
+
+      const W = canvas.width;   // 400
+      const H = canvas.height;  // 96
+      sizeBadge.textContent = `${W}×${H}`;
+
+      const fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+
+      // Nome/Cargo alinhados à coluna dos ícones
+      const NAME_X = 134, NAME_Y = 12;
+      const ROLE_X = 134, ROLE_Y = 32;
+
+      // Contatos: +3px para a direita
+      const PHONE_X = 145, PHONE_Y = 56;
+      const EMAIL_X = 145, EMAIL_Y = 73;
+
+      // Área segura antes do selo "ig.com.br"
+      const RIGHT_SAFE_X = 310;
+      const MAX_W_NAME = RIGHT_SAFE_X - NAME_X;
+      const MAX_W_CONTACT = RIGHT_SAFE_X - PHONE_X;
+
+      let bgImg = null;
+
+      function sanitizeText(s, max = 80) {
+        return String(s ?? "")
+          .replace(/\s+/g, " ")
+          .replace(/[\r\n]+/g, " ")
+          .trim()
+          .slice(0, max);
+      }
+
+      function fitText(text, maxWidth, baseSize, minSize, fontWeight) {
+        let size = baseSize;
+        while (size >= minSize) {
+          ctx.font = `${fontWeight} ${size}px ${fontFamily}`;
+          if (ctx.measureText(text).width <= maxWidth) return size;
+          size -= 1;
+        }
+        return minSize;
+      }
+
+      function drawOverlay() {
+        const name = sanitizeText(fullNameEl.value, 60) || "Nome Completo";
+        const role = sanitizeText(roleEl.value, 40);
+        const phone = sanitizeText(contactEl.value, 60) || "telefone";
+        const email = sanitizeText(emailEl.value, 60);
+
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+
+        // Nome
+        ctx.fillStyle = "#0b4bff";
+        const nameSize = fitText(name, MAX_W_NAME, 18, 12, 700);
+        ctx.font = `700 ${nameSize}px ${fontFamily}`;
+        ctx.fillText(name, NAME_X, NAME_Y);
+
+        // Cargo
+        if (role) {
+          ctx.fillStyle = "rgba(11, 13, 16, 0.65)";
+          const roleSize = fitText(role, MAX_W_NAME, 12, 10, 500);
+          ctx.font = `500 ${roleSize}px ${fontFamily}`;
+          ctx.fillText(role, ROLE_X, ROLE_Y);
+        }
+
+        // Telefone
+        ctx.fillStyle = "rgba(11, 13, 16, 0.85)";
+        const phoneSize = fitText(phone, MAX_W_CONTACT, 12, 9, 600);
+        ctx.font = `600 ${phoneSize}px ${fontFamily}`;
+        ctx.fillText(phone, PHONE_X, PHONE_Y);
+
+        // E-mail
+        if (email) {
+          ctx.fillStyle = "rgba(11, 13, 16, 0.85)";
+          const emailSize = fitText(email, MAX_W_CONTACT, 12, 9, 600);
+          ctx.font = `600 ${emailSize}px ${fontFamily}`;
+          ctx.fillText(email, EMAIL_X, EMAIL_Y);
+        }
+      }
+
+      function render() {
+        ctx.clearRect(0, 0, W, H);
+
+        // Fundo branco (JPEG)
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, W, H);
+
+        if (bgImg) {
+          ctx.drawImage(bgImg, 0, 0, W, H);
+        } else {
+          ctx.fillStyle = "#0b0d10";
+          ctx.font = `600 12px ${fontFamily}`;
+          ctx.textBaseline = "top";
+          ctx.fillText("Layout não carregado.", 12, 12);
+        }
+
+        drawOverlay();
+      }
+
+      // Download robusto: try/catch + toBlob + fallback toDataURL
+      function downloadJPEG() {
+        try {
+          const name = sanitizeText(fullNameEl.value, 60);
+          const phone = sanitizeText(contactEl.value, 60);
+
+          if (!name || !phone) {
+            errorMsg.textContent = "Preencha ao menos Nome e Telefone antes de baixar.";
+            errorMsg.style.display = "block";
+            return;
+          }
+
+          if (!bgImg) {
+            errorMsg.textContent = "Layout não carregado. Verifique assets/layout.jpg.";
+            errorMsg.style.display = "block";
+            return;
+          }
+
+          errorMsg.style.display = "none";
+
+          const safeFile = name
+            .toLowerCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 40) || "assinatura";
+
+          const filename = `assinatura-${safeFile}.jpg`;
+
+          canvas.toBlob((blob) => {
+            // Fallback: alguns ambientes retornam null
+            if (!blob) {
+              try {
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+                const a = document.createElement("a");
+                a.href = dataUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              } catch (e2) {
+                console.error("Falha no fallback toDataURL:", e2);
+                errorMsg.textContent = "Falha ao gerar o JPEG. Verifique o Console (F12).";
+                errorMsg.style.display = "block";
+              }
+              return;
+            }
+
+            // Legado (não atrapalha)
+            if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+              window.navigator.msSaveOrOpenBlob(blob, filename);
+              return;
+            }
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          }, "image/jpeg", 0.92);
+
+        } catch (e) {
+          console.error("Erro ao exportar JPEG:", e);
+          errorMsg.textContent = "Falha ao exportar JPEG. Verifique o Console (F12).";
+          errorMsg.style.display = "block";
+        }
+      }
+
+      function clearAll() {
+        fullNameEl.value = "";
+        roleEl.value = "";
+        contactEl.value = "";
+        emailEl.value = "";
+        errorMsg.style.display = "none";
+        render();
+      }
+
+      function setBackgroundFromURL(path) {
+        const img = new Image();
+
+        if (bgStatus) bgStatus.textContent = `Carregando layout: ${path}`;
+
+        img.onload = () => {
+          bgImg = img;
+          btnDownload.disabled = false;
+          errorMsg.style.display = "none";
+          if (bgStatus) bgStatus.textContent = `Layout carregado: ${path}`;
+          render();
+        };
+
+        img.onerror = () => {
+          bgImg = null;
+          btnDownload.disabled = true;
+          if (bgStatus) bgStatus.textContent = `Falha ao carregar: ${path}`;
+          render();
+        };
+
+        img.src = path;
+      }
+
+      fullNameEl.addEventListener("input", render);
+      roleEl.addEventListener("input", render);
+      contactEl.addEventListener("input", render);
+      emailEl.addEventListener("input", render);
+
+      // Listener explícito (mais fácil de depurar)
+      btnDownload.addEventListener("click", downloadJPEG);
+      btnClear.addEventListener("click", clearAll);
+
+      render();
+      setBackgroundFromURL(DEFAULT_LAYOUT_URL);
+    })();
+  </script>
+</body>
+</html>
