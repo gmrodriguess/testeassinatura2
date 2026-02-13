@@ -113,7 +113,7 @@
     <section class="card">
       <h1>Gerador de assinatura</h1>
       <p>
-        Preencha com suas informações pessoais logo após clique em exportar assinatura. 
+        Preencha com suas informações pessoais logo após clique em exportar assinatura.
         Assim que baixar a assinatura, insira na sua ferramenta de e-mail.
       </p>
 
@@ -132,7 +132,8 @@
       <input id="email" type="text" placeholder="Ex.: gmrodrigues@ig.com" />
 
       <div class="row">
-        <button class="primary" id="btnDownload" type="button" disabled>Exportar Assinatura/button>
+        <!-- CORRIGIDO: fechamento correto do botão -->
+        <button class="primary" id="btnDownload" type="button" disabled>Exportar Assinatura</button>
         <button id="btnClear" type="button">Limpar</button>
       </div>
 
@@ -177,18 +178,22 @@
 
       const fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
 
-      // Nome/Cargo 
+      // Nome/Cargo
       const NAME_X = 134, NAME_Y = 12;
       const ROLE_X = 134, ROLE_Y = 32;
 
-      // Contatos
-      const PHONE_X = 145, PHONE_Y = 56;
-      const EMAIL_X = 145, EMAIL_Y = 73;
+      // Contatos (X mantido)
+      const CONTACT_X = 145;
+
+      // NOVO: Y como CENTRO dos ícones (ajuste fino em +/- 1px se necessário)
+      // Se o centro não bater exatamente no seu layout final, ajuste apenas estes dois valores.
+      const PHONE_CENTER_Y = 60;
+      const EMAIL_CENTER_Y = 76;
 
       // Área segura antes do selo "ig.com.br"
       const RIGHT_SAFE_X = 310;
       const MAX_W_NAME = RIGHT_SAFE_X - NAME_X;
-      const MAX_W_CONTACT = RIGHT_SAFE_X - PHONE_X;
+      const MAX_W_CONTACT = RIGHT_SAFE_X - CONTACT_X;
 
       let bgImg = null;
 
@@ -217,6 +222,8 @@
         const email = sanitizeText(emailEl.value, 60);
 
         ctx.textAlign = "left";
+
+        // Nome/Cargo por TOP
         ctx.textBaseline = "top";
 
         // Nome
@@ -233,18 +240,20 @@
           ctx.fillText(role, ROLE_X, ROLE_Y);
         }
 
-        // Telefone
+        // Contatos por MIDDLE (centro dos ícones)
+        ctx.textBaseline = "middle";
         ctx.fillStyle = "rgba(11, 13, 16, 0.85)";
+
+        // Telefone
         const phoneSize = fitText(phone, MAX_W_CONTACT, 12, 9, 600);
         ctx.font = `600 ${phoneSize}px ${fontFamily}`;
-        ctx.fillText(phone, PHONE_X, PHONE_Y);
+        ctx.fillText(phone, CONTACT_X, PHONE_CENTER_Y);
 
         // E-mail
         if (email) {
-          ctx.fillStyle = "rgba(11, 13, 16, 0.85)";
           const emailSize = fitText(email, MAX_W_CONTACT, 12, 9, 600);
           ctx.font = `600 ${emailSize}px ${fontFamily}`;
-          ctx.fillText(email, EMAIL_X, EMAIL_Y);
+          ctx.fillText(email, CONTACT_X, EMAIL_CENTER_Y);
         }
       }
 
@@ -297,7 +306,6 @@
           const filename = `assinatura-${safeFile}.jpg`;
 
           canvas.toBlob((blob) => {
-            // Fallback: alguns ambientes retornam null
             if (!blob) {
               try {
                 const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
@@ -315,7 +323,6 @@
               return;
             }
 
-            // Legado (não atrapalha)
             if (window.navigator && window.navigator.msSaveOrOpenBlob) {
               window.navigator.msSaveOrOpenBlob(blob, filename);
               return;
@@ -375,7 +382,6 @@
       contactEl.addEventListener("input", render);
       emailEl.addEventListener("input", render);
 
-      // Listener explícito (mais fácil de depurar)
       btnDownload.addEventListener("click", downloadJPEG);
       btnClear.addEventListener("click", clearAll);
 
@@ -385,15 +391,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
