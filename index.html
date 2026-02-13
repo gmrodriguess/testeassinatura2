@@ -70,9 +70,7 @@
     }
     button.primary:hover{ border-color: rgba(79,140,255,.75); }
     button[disabled]{ opacity:.55; cursor:not-allowed; }
-
     .error{ color: var(--danger); font-size:12px; margin-top:10px; display:none; }
-
     .previewHead{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
     .badge{
       font-size:12px;
@@ -96,28 +94,22 @@
       max-width:100%;
       height:auto;
     }
-
-    .status{
-      font-size:12px;
-      color:var(--muted);
-      padding:10px 12px;
-      border:1px solid var(--stroke);
-      border-radius:12px;
-      background:#0e1217;
-      margin: 10px 0 0;
-    }
+    .fileRow{ display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+    .fileName{ font-size:12px; color:var(--muted); }
+    input[type="file"]{ padding:10px; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <section class="card">
-      <h1>Gerador de assinatura</h1>
-      <p>
-        Preencha com suas informações pessoais logo após clique em exportar assinatura. 
-        Assim que baixar a assinatura, insira na sua ferramenta de e-mail.
-      </p>
+      <h1>Gerador de assinatura (JPEG)</h1>
+      <p>Selecione o layout (PNG/JPG). Depois preencha e baixe. Este fluxo funciona por duplo clique no Chrome.</p>
 
-      <div class="status" id="bgStatus">Carregando layout…</div>
+      <label for="bgFile">Layout (PNG ou JPG)</label>
+      <div class="fileRow">
+        <input id="bgFile" type="file" accept="image/png,image/jpeg" />
+        <span class="fileName" id="bgStatus">Nenhum arquivo selecionado</span>
+      </div>
 
       <label for="fullName">Nome completo</label>
       <input id="fullName" type="text" placeholder="Ex.: Gabriel Rodrigues" />
@@ -126,17 +118,17 @@
       <input id="role" type="text" placeholder="Ex.: Designer" />
 
       <label for="contact">Telefone / WhatsApp</label>
-      <input id="contact" type="text" placeholder="Ex.: (11) 94444-5555" />
+      <input id="contact" type="text" placeholder="Ex.: (11) 97887-6929" />
 
       <label for="email">E-mail (opcional)</label>
-      <input id="email" type="text" placeholder="Ex.: gmrodrigues@ig.com" />
+      <input id="email" type="text" placeholder="Ex.: gabriel.mrl3@gmail.com" />
 
       <div class="row">
-        <button class="primary" id="btnDownload" type="button" disabled>Exportar Assinatura/button>
+        <button class="primary" id="btnDownload" type="button" disabled>Baixar JPEG</button>
         <button id="btnClear" type="button">Limpar</button>
       </div>
 
-      <div class="error" id="errorMsg">Preencha ao menos Nome e Telefone antes de baixar.</div>
+      <div class="error" id="errorMsg">Selecione um layout e preencha ao menos Nome e Telefone antes de baixar.</div>
     </section>
 
     <section class="card">
@@ -153,12 +145,10 @@
 
   <script>
     (function () {
-      // Layout padrão (JPG)
-      const DEFAULT_LAYOUT_URL = "./assets/layout.jpg";
-
       const canvas = document.getElementById("sigCanvas");
       const ctx = canvas.getContext("2d");
 
+      const bgFileEl = document.getElementById("bgFile");
       const bgStatus = document.getElementById("bgStatus");
 
       const fullNameEl = document.getElementById("fullName");
@@ -177,18 +167,22 @@
 
       const fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
 
-      // Nome/Cargo 
+      // Nome/Cargo alinhados à coluna dos ícones
       const NAME_X = 134, NAME_Y = 12;
       const ROLE_X = 134, ROLE_Y = 32;
 
-      // Contatos
-      const PHONE_X = 145, PHONE_Y = 56;
-      const EMAIL_X = 145, EMAIL_Y = 73;
+      // Contatos: X ajustado como você pediu (+3 px vs versão anterior)
+      const CONTACT_X = 145;
+
+      // IMPORTANTE: alinhamento vertical pelo CENTRO dos ícones
+      // Ajuste fino se necessário: altere +/- 1 ou 2 px.
+      const PHONE_CENTER_Y = 60;
+      const EMAIL_CENTER_Y = 76;
 
       // Área segura antes do selo "ig.com.br"
       const RIGHT_SAFE_X = 310;
       const MAX_W_NAME = RIGHT_SAFE_X - NAME_X;
-      const MAX_W_CONTACT = RIGHT_SAFE_X - PHONE_X;
+      const MAX_W_CONTACT = RIGHT_SAFE_X - CONTACT_X;
 
       let bgImg = null;
 
@@ -217,15 +211,15 @@
         const email = sanitizeText(emailEl.value, 60);
 
         ctx.textAlign = "left";
+
+        // Nome e cargo por TOP (mais previsível para blocos)
         ctx.textBaseline = "top";
 
-        // Nome
         ctx.fillStyle = "#0b4bff";
         const nameSize = fitText(name, MAX_W_NAME, 18, 12, 700);
         ctx.font = `700 ${nameSize}px ${fontFamily}`;
         ctx.fillText(name, NAME_X, NAME_Y);
 
-        // Cargo
         if (role) {
           ctx.fillStyle = "rgba(11, 13, 16, 0.65)";
           const roleSize = fitText(role, MAX_W_NAME, 12, 10, 500);
@@ -233,25 +227,23 @@
           ctx.fillText(role, ROLE_X, ROLE_Y);
         }
 
-        // Telefone
+        // Contatos por MIDDLE para bater no centro dos ícones
+        ctx.textBaseline = "middle";
         ctx.fillStyle = "rgba(11, 13, 16, 0.85)";
+
         const phoneSize = fitText(phone, MAX_W_CONTACT, 12, 9, 600);
         ctx.font = `600 ${phoneSize}px ${fontFamily}`;
-        ctx.fillText(phone, PHONE_X, PHONE_Y);
+        ctx.fillText(phone, CONTACT_X, PHONE_CENTER_Y);
 
-        // E-mail
         if (email) {
-          ctx.fillStyle = "rgba(11, 13, 16, 0.85)";
           const emailSize = fitText(email, MAX_W_CONTACT, 12, 9, 600);
           ctx.font = `600 ${emailSize}px ${fontFamily}`;
-          ctx.fillText(email, EMAIL_X, EMAIL_Y);
+          ctx.fillText(email, CONTACT_X, EMAIL_CENTER_Y);
         }
       }
 
       function render() {
         ctx.clearRect(0, 0, W, H);
-
-        // Fundo branco (JPEG)
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, W, H);
 
@@ -261,81 +253,65 @@
           ctx.fillStyle = "#0b0d10";
           ctx.font = `600 12px ${fontFamily}`;
           ctx.textBaseline = "top";
-          ctx.fillText("Layout não carregado.", 12, 12);
+          ctx.fillText("Selecione um layout (PNG/JPG) para iniciar", 12, 12);
         }
 
         drawOverlay();
       }
 
-      // Download robusto: try/catch + toBlob + fallback toDataURL
       function downloadJPEG() {
-        try {
-          const name = sanitizeText(fullNameEl.value, 60);
-          const phone = sanitizeText(contactEl.value, 60);
+        const name = sanitizeText(fullNameEl.value, 60);
+        const phone = sanitizeText(contactEl.value, 60);
 
-          if (!name || !phone) {
-            errorMsg.textContent = "Preencha ao menos Nome e Telefone antes de baixar.";
-            errorMsg.style.display = "block";
-            return;
-          }
-
-          if (!bgImg) {
-            errorMsg.textContent = "Layout não carregado. Verifique assets/layout.jpg.";
-            errorMsg.style.display = "block";
-            return;
-          }
-
-          errorMsg.style.display = "none";
-
-          const safeFile = name
-            .toLowerCase()
-            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "")
-            .slice(0, 40) || "assinatura";
-
-          const filename = `assinatura-${safeFile}.jpg`;
-
-          canvas.toBlob((blob) => {
-            // Fallback: alguns ambientes retornam null
-            if (!blob) {
-              try {
-                const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-                const a = document.createElement("a");
-                a.href = dataUrl;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-              } catch (e2) {
-                console.error("Falha no fallback toDataURL:", e2);
-                errorMsg.textContent = "Falha ao gerar o JPEG. Verifique o Console (F12).";
-                errorMsg.style.display = "block";
-              }
-              return;
-            }
-
-            // Legado (não atrapalha)
-            if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-              window.navigator.msSaveOrOpenBlob(blob, filename);
-              return;
-            }
-
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-          }, "image/jpeg", 0.92);
-
-        } catch (e) {
-          console.error("Erro ao exportar JPEG:", e);
-          errorMsg.textContent = "Falha ao exportar JPEG. Verifique o Console (F12).";
+        if (!bgImg || !name || !phone) {
           errorMsg.style.display = "block";
+          return;
         }
+        errorMsg.style.display = "none";
+
+        const safeFile = name
+          .toLowerCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 40) || "assinatura";
+
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            errorMsg.textContent = "Falha ao gerar o JPEG. Recarregue e selecione o layout novamente.";
+            errorMsg.style.display = "block";
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `assinatura-${safeFile}.jpg`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        }, "image/jpeg", 0.92);
+      }
+
+      function setBackgroundFromFile(file) {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          bgImg = img;
+          btnDownload.disabled = false;
+          errorMsg.style.display = "none";
+          render();
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          bgImg = null;
+          btnDownload.disabled = true;
+          errorMsg.textContent = "Não foi possível carregar a imagem do layout.";
+          errorMsg.style.display = "block";
+          render();
+        };
+        img.src = url;
       }
 
       function clearAll() {
@@ -347,52 +323,23 @@
         render();
       }
 
-      function setBackgroundFromURL(path) {
-        const img = new Image();
-
-        if (bgStatus) bgStatus.textContent = `Carregando layout: ${path}`;
-
-        img.onload = () => {
-          bgImg = img;
-          btnDownload.disabled = false;
-          errorMsg.style.display = "none";
-          if (bgStatus) bgStatus.textContent = `Layout carregado: ${path}`;
-          render();
-        };
-
-        img.onerror = () => {
-          bgImg = null;
-          btnDownload.disabled = true;
-          if (bgStatus) bgStatus.textContent = `Falha ao carregar: ${path}`;
-          render();
-        };
-
-        img.src = path;
-      }
+      bgFileEl.addEventListener("change", () => {
+        const file = bgFileEl.files && bgFileEl.files[0];
+        if (!file) return;
+        bgStatus.textContent = file.name;
+        setBackgroundFromFile(file);
+      });
 
       fullNameEl.addEventListener("input", render);
       roleEl.addEventListener("input", render);
       contactEl.addEventListener("input", render);
       emailEl.addEventListener("input", render);
 
-      // Listener explícito (mais fácil de depurar)
       btnDownload.addEventListener("click", downloadJPEG);
       btnClear.addEventListener("click", clearAll);
 
       render();
-      setBackgroundFromURL(DEFAULT_LAYOUT_URL);
     })();
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
